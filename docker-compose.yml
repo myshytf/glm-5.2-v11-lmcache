@@ -1,7 +1,7 @@
 services:
-  glm52-v11:
+  glm52-v11-dcplmcache:
     image: voipmonitor/vllm:glm52-v11-darkdevotion-vllma86f74e-b12x5b2e018-cu132-20260618
-    container_name: glm52-v11
+    container_name: glm52-v11-dcplmcache
     restart: unless-stopped
     network_mode: host
     ipc: host
@@ -24,14 +24,14 @@ services:
       - /models/.cache/triton:/root/.triton
       - /models/.cache/torchinductor:/tmp/torchinductor_root
       - /root/vllm/artifacts:/root/vllm/artifacts
-      - /models/.lmcache_disk:/models/.lmcache_disk
-      - ./serve.sh:/opt/serve_glm52_v11_lmcache.sh:ro
+      - /models/.lmcache_disk_dcp:/models/.lmcache_disk
+      - ./serve_glm52_v11_lmcache.sh:/opt/serve_glm52_v11_lmcache.sh:ro
       - ./patch_kv_xfer_assert_v10.py:/opt/patch_kv_xfer_assert_v10.py:ro
       - ./patch_fs_l2_adapter.py:/opt/patch_fs_l2_adapter.py:ro
       - ./patch_l1_evict_flush_to_l2.py:/opt/patch_l1_evict_flush_to_l2.py:ro
       - ./patch_preempt_safe_restore.py:/opt/patch_preempt_safe_restore.py:ro
       - ./patch_dcp_lmcache.py:/opt/patch_dcp_lmcache.py:ro
-      - ./patch_dcp_combine.py:/opt/patch_dcp_combine.py:ro
+      - ./patch_dcp_mla_store.py:/opt/patch_dcp_mla_store.py:ro
     environment:
       CUDA_VISIBLE_DEVICES: "0,1,2,3,4,5,6,7"
       CUDA_DEVICE_ORDER: PCI_BUS_ID
@@ -61,11 +61,11 @@ services:
       B12X_W4A16_TC_DECODE: "1"
       B12X_MOE_FORCE_A16: "1"
       MODEL: /models/GLM-5.2-NVFP4
-      SERVED_MODEL_NAME: GLM-5.2-v11
-      SERVED_MODEL_NAMES: "GLM-5.2-v11"
+      SERVED_MODEL_NAME: GLM-5.2-v11-dcplmcache
+      SERVED_MODEL_NAMES: "GLM-5.2-v11-dcplmcache"
       PORT: "5318"
       TP_SIZE: "8"
-      DCP_SIZE: "${DCP_SIZE:-1}"
+      DCP_SIZE: "4"
       MTP: "1"
       GPU_MEMORY_UTILIZATION: "0.94"
       MAX_MODEL_LEN: "450000"
@@ -78,10 +78,10 @@ services:
       MOE_BACKEND: b12x
       QUANTIZATION: modelopt_fp4
       GLM52_INDEX_TOPK_PATTERN: FFFSSSFSSSFSSSFSSSFSSSFSSSFSSSFSSSFSSSFSSSFSSSFSSSFSSSFSSSFSSSFSSSFSSSFSSSFSSS
-      VLLM_API_KEY: "${VLLM_API_KEY:-changeme}"
+      VLLM_API_KEY: "${VLLM_API_KEY}"
       # --- LMCache (MP connector, DCP-aware patch) ---
       GLM52_ENABLE_LMCACHE: "1"
-      GLM52_LMCACHE_CHUNK_SIZE: "${GLM52_LMCACHE_CHUNK_SIZE:-256}"
+      GLM52_LMCACHE_CHUNK_SIZE: "512"
       GLM52_LMCACHE_L1_GB: "48"
       GLM52_LMCACHE_L1_INIT_GB: "8"
       GLM52_LMCACHE_L2_GB: "500"

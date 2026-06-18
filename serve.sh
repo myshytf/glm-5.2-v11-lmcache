@@ -42,10 +42,13 @@ if [[ -f /opt/patch_dcp_lmcache.py ]]; then
   "${PY}" /opt/patch_dcp_lmcache.py
 fi
 
-# 6. DCP LSE combine patch (fixes attention accuracy with DCP>1)
-if [[ -f /opt/patch_dcp_combine.py ]]; then
-  "${PY}" /opt/patch_dcp_combine.py
+# 6. DCP MLA store patch (fix: first dcp_size ranks must store, not just rank 0)
+if [[ -f /opt/patch_dcp_mla_store.py ]]; then
+  "${PY}" /opt/patch_dcp_mla_store.py
 fi
+
+# NOTE: DCP LSE combine is already handled in mla_attention.py (line ~865).
+# No additional combine patch needed for B12X MLA sparse backend.
 
 # Runtime defaults
 MODEL="${MODEL:-/models/GLM-5.2-NVFP4}"
