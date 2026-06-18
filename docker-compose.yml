@@ -1,0 +1,93 @@
+services:
+  glm52-v11:
+    image: voipmonitor/vllm:glm52-v11-darkdevotion-vllma86f74e-b12x5b2e018-cu132-20260618
+    container_name: glm52-v11
+    restart: unless-stopped
+    network_mode: host
+    ipc: host
+    shm_size: 32g
+    privileged: true
+    gpus: all
+    ulimits:
+      memlock: -1
+      stack: 67108864
+      nofile:
+        soft: 1048576
+        hard: 1048576
+    volumes:
+      - /mnt:/mnt
+      - /cache:/cache
+      - /models/GLM-5.2-NVFP4:/models/GLM-5.2-NVFP4:ro
+      - /models/.cache/huggingface:/root/.cache/huggingface
+      - /models/.vllm_cache:/root/.cache/vllm
+      - /models/.cache/cutlass:/root/.cache/cutlass
+      - /models/.cache/triton:/root/.triton
+      - /models/.cache/torchinductor:/tmp/torchinductor_root
+      - /root/vllm/artifacts:/root/vllm/artifacts
+      - /models/.lmcache_disk:/models/.lmcache_disk
+      - ./serve.sh:/opt/serve_glm52_v11_lmcache.sh:ro
+      - ./patch_kv_xfer_assert_v10.py:/opt/patch_kv_xfer_assert_v10.py:ro
+      - ./patch_fs_l2_adapter.py:/opt/patch_fs_l2_adapter.py:ro
+      - ./patch_l1_evict_flush_to_l2.py:/opt/patch_l1_evict_flush_to_l2.py:ro
+      - ./patch_preempt_safe_restore.py:/opt/patch_preempt_safe_restore.py:ro
+      - ./patch_dcp_lmcache.py:/opt/patch_dcp_lmcache.py:ro
+      - ./patch_dcp_combine.py:/opt/patch_dcp_combine.py:ro
+    environment:
+      CUDA_VISIBLE_DEVICES: "0,1,2,3,4,5,6,7"
+      CUDA_DEVICE_ORDER: PCI_BUS_ID
+      CUDA_DEVICE_MAX_CONNECTIONS: "32"
+      OMP_NUM_THREADS: "16"
+      CUTE_DSL_ARCH: sm_120a
+      NCCL_IB_DISABLE: "1"
+      NCCL_P2P_LEVEL: SYS
+      NCCL_PROTO: LL,LL128,Simple
+      # NOTE: do NOT set PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True —
+      # LMCacheMPConnector is incompatible with VMM expandable segments.
+      SAFETENSORS_FAST_GPU: "1"
+      VLLM_WORKER_MULTIPROC_METHOD: spawn
+      VLLM_USE_AOT_COMPILE: "1"
+      VLLM_USE_BREAKABLE_CUDAGRAPH: "0"
+      VLLM_USE_MEGA_AOT_ARTIFACT: "1"
+      VLLM_USE_FLASHINFER_SAMPLER: "1"
+      VLLM_USE_B12X_FP8_GEMM: "1"
+      VLLM_USE_B12X_MOE: "1"
+      VLLM_USE_B12X_SPARSE_INDEXER: "1"
+      VLLM_USE_V2_MODEL_RUNNER: "1"
+      VLLM_ENABLE_PCIE_ALLREDUCE: "1"
+      VLLM_PCIE_ALLREDUCE_BACKEND: b12x
+      VLLM_PCIE_ONESHOT_ALLREDUCE_MAX_SIZE: 64KB
+      USES_B12X: "True"
+      B12X_DENSE_SPLITK_TURBO: "1"
+      B12X_W4A16_TC_DECODE: "1"
+      B12X_MOE_FORCE_A16: "1"
+      MODEL: /models/GLM-5.2-NVFP4
+      SERVED_MODEL_NAME: GLM-5.2-v11
+      SERVED_MODEL_NAMES: "GLM-5.2-v11"
+      PORT: "5318"
+      TP_SIZE: "8"
+      DCP_SIZE: "${DCP_SIZE:-1}"
+      MTP: "1"
+      GPU_MEMORY_UTILIZATION: "0.94"
+      MAX_MODEL_LEN: "450000"
+      MAX_NUM_SEQS: "16"
+      MAX_NUM_BATCHED_TOKENS: "8192"
+      NUM_SPECULATIVE_TOKENS: "2"
+      MAX_CUDAGRAPH_CAPTURE_SIZE: "96"
+      KV_CACHE_DTYPE: fp8
+      ATTENTION_BACKEND: B12X_MLA_SPARSE
+      MOE_BACKEND: b12x
+      QUANTIZATION: modelopt_fp4
+      GLM52_INDEX_TOPK_PATTERN: FFFSSSFSSSFSSSFSSSFSSSFSSSFSSSFSSSFSSSFSSSFSSSFSSSFSSSFSSSFSSSFSSSFSSSFSSSFSSS
+      VLLM_API_KEY: "${VLLM_API_KEY:-changeme}"
+      # --- LMCache (MP connector, DCP-aware patch) ---
+      GLM52_ENABLE_LMCACHE: "1"
+      GLM52_LMCACHE_CHUNK_SIZE: "${GLM52_LMCACHE_CHUNK_SIZE:-256}"
+      GLM52_LMCACHE_L1_GB: "48"
+      GLM52_LMCACHE_L1_INIT_GB: "8"
+      GLM52_LMCACHE_L2_GB: "500"
+      GLM52_LMCACHE_DISK_PATH: "/models/.lmcache_disk"
+      LMCACHE_SAVE_DECODE_CACHE: "true"
+      PYTHONHASHSEED: "0"
+    entrypoint: ["/bin/bash", "-lc"]
+    command:
+      - "exec /opt/serve_glm52_v11_lmcache.sh"
